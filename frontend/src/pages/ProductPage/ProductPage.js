@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { catalogueAPI, ratingsAPI } from '../services/api';
-import { useAuth } from '../context/AuthContext';
+import { catalogueAPI, ratingsAPI } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import './ProductPage.css';
 
 function ProductPage() {

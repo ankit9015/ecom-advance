@@ -11,13 +11,20 @@ const PORT = process.env.PORT || 5002;
 const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://ecom_user:ecom_password@localhost:5432/ecom_db';
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
+const corsOptions = {
+  origin: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+};
+
 // Database pool
 const pool = new Pool({
   connectionString: DATABASE_URL
 });
 
 // Middleware
-app.use(cors());
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 app.use(bodyParser.json());
 
 // Health Check
@@ -168,6 +175,6 @@ app.use((err, req, res, next) => {
 });
 
 // Start server
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`User service running on port ${PORT}`);
 });

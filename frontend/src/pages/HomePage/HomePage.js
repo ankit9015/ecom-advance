@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { catalogueAPI } from '../services/api';
+import { catalogueAPI } from '../../services/api';
 import './HomePage.css';
 
 function HomePage() {

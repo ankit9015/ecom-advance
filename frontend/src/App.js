@@ -4,11 +4,11 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import './App.css';
 
 // Pages
-import HomePage from './pages/HomePage';
-import ProductPage from './pages/ProductPage';
-import LoginPage from './pages/LoginPage';
-import RegisterPage from './pages/RegisterPage';
-import ProfilePage from './pages/ProfilePage';
+import HomePage from './pages/HomePage/HomePage';
+import ProductPage from './pages/ProductPage/ProductPage';
+import LoginPage from './pages/AuthPages/LoginPage/LoginPage';
+import RegisterPage from './pages/AuthPages/RegisterPage/RegisterPage';
+import ProfilePage from './pages/ProfilePage/ProfilePage';
 
 function AppContent() {
   const { user, logout } = useAuth();

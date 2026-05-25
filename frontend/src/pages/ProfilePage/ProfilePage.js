@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { userAPI } from '../services/api';
-import { useAuth } from '../context/AuthContext';
+import { userAPI } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import './ProfilePage.css';
 
 function ProfilePage() {
