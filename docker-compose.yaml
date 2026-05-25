@@ -42,6 +42,23 @@ services:
       timeout: 5s
       retries: 5
 
+  # Cache Layer
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - ecom-network
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # Backend Services
   catalogue:
     build:
@@ -49,15 +66,18 @@ services:
       dockerfile: Dockerfile
     container_name: catalogue
     ports:
-      - "5001:${CATALOGUE_SERVICE_PORT:-5001}"
+      - "5001:${CATALOGUE_SERVICE_PORT}
     environment:
-      NODE_ENV: ${NODE_ENV:-development}
-      MONGODB_URI: ${MONGODB_URI:-mongodb://mongodb:27017/catalogue}
-      PORT: ${CATALOGUE_SERVICE_PORT:-5001}
-      USER_SERVICE_URL: ${USER_SERVICE_URL:-http://user:5002}
-      RATINGS_SERVICE_URL: ${RATINGS_SERVICE_URL:-http://ratings:5003}
+      NODE_ENV: ${NODE_ENV}
+      MONGODB_URI: ${MONGODB_URI}
+      REDIS_URL: ${REDIS_URL}
+      PORT: ${CATALOGUE_SERVICE_PORT}
+      USER_SERVICE_URL: ${USER_SERVICE_URL}
+      RATINGS_SERVICE_URL: ${RATINGS_SERVICE_URL}
     depends_on:
       mongodb:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       - ecom-network
@@ -73,13 +93,16 @@ services:
       dockerfile: Dockerfile
     container_name: user
     ports:
-      - "5002:${USER_SERVICE_PORT:-5002}"
+      - "5002:${USER_SERVICE_PORT}"
     environment:
-      NODE_ENV: ${NODE_ENV:-development}
-      DATABASE_URL: ${DATABASE_URL:-postgresql://ecom_user:ecom_password@postgres:5432/ecom_db}
-      PORT: ${USER_SERVICE_PORT:-5002}
+      NODE_ENV: ${NODE_ENV}
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      PORT: ${USER_SERVICE_PORT}
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       - ecom-network
@@ -95,18 +118,50 @@ services:
       dockerfile: Dockerfile
     container_name: ratings
     ports:
-      - "5003:${RATINGS_SERVICE_PORT:-5003}"
+      - "5003:${RATINGS_SERVICE_PORT}"
     environment:
-      FLASK_ENV: ${FLASK_ENV:-development}
-      DATABASE_URL: ${DATABASE_URL:-postgresql://ecom_user:ecom_password@postgres:5432/ecom_db}
-      PORT: ${RATINGS_SERVICE_PORT:-5003}
+      FLASK_ENV: ${FLASK_ENV}
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      PORT: ${RATINGS_SERVICE_PORT}
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       - ecom-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:${RATINGS_SERVICE_PORT}/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # API Gateway
+  gateway:
+    build:
+      context: ./services/gateway
+      dockerfile: Dockerfile
+    container_name: gateway
+    ports:
+      - "4000:${GATEWAY_PORT}"
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      PORT: ${GATEWAY_PORT}
+      CATALOGUE_SERVICE_URL: ${CATALOGUE_SERVICE_URL}
+      USER_SERVICE_URL: ${USER_SERVICE_URL}
+      RATINGS_SERVICE_URL: ${RATINGS_SERVICE_URL}
+      REDIS_URL: ${REDIS_URL}
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      - catalogue
+      - user
+      - ratings
+      - redis
+    networks:
+      - ecom-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${GATEWAY_PORT}/health"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -120,19 +175,16 @@ services:
     ports:
       - "3000:3000"
     environment:
-      REACT_APP_CATALOGUE_URL: ${REACT_APP_CATALOGUE_URL:-http://localhost:5001}
-      REACT_APP_USER_URL: ${REACT_APP_USER_URL:-http://localhost:5002}
-      REACT_APP_RATINGS_URL: ${REACT_APP_RATINGS_URL:-http://localhost:5003}
+      REACT_APP_API_URL: http://localhost:4000
     depends_on:
-      - catalogue
-      - user
-      - ratings
+      - gateway
     networks:
       - ecom-network
 
 volumes:
   mongodb_data:
   postgres_data:
+  redis_data:
 
 networks:
   ecom-network:
