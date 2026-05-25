@@ -1,0 +1,139 @@
+version: '3.8'
+
+services:
+  # Databases
+  mongodb:
+    image: mongo:6.0
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+      MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE}
+    volumes:
+      - mongodb_data:/data/db
+      - ./init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
+    networks:
+      - ecom-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-postgres.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - ecom-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend Services
+  catalogue:
+    build:
+      context: ./services/catalogue
+      dockerfile: Dockerfile
+    container_name: catalogue
+    ports:
+      - "5001:${CATALOGUE_SERVICE_PORT}"
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      MONGODB_URI: ${MONGODB_URI}
+      PORT: ${CATALOGUE_SERVICE_PORT}
+      USER_SERVICE_URL: ${USER_SERVICE_URL}
+      RATINGS_SERVICE_URL: ${RATINGS_SERVICE_URL}
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - ecom-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${CATALOGUE_SERVICE_PORT}/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  user:
+    build:
+      context: ./services/user
+      dockerfile: Dockerfile
+    container_name: user
+    ports:
+      - "5002:${USER_SERVICE_PORT}"
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      DATABASE_URL: ${DATABASE_URL}
+      PORT: ${USER_SERVICE_PORT}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - ecom-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${USER_SERVICE_PORT}/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  ratings:
+    build:
+      context: ./services/ratings
+      dockerfile: Dockerfile
+    container_name: ratings
+    ports:
+      - "5003:${RATINGS_SERVICE_PORT}"
+    environment:
+      FLASK_ENV: ${FLASK_ENV}
+      DATABASE_URL: ${DATABASE_URL}
+      PORT: ${RATINGS_SERVICE_PORT}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - ecom-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${RATINGS_SERVICE_PORT}/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    ports:
+      - "3000:3000"
+    environment:
+      REACT_APP_CATALOGUE_URL: http://localhost:5001
+      REACT_APP_USER_URL: http://localhost:5002
+      REACT_APP_RATINGS_URL: http://localhost:5003
+    depends_on:
+      - catalogue
+      - user
+      - ratings
+    networks:
+      - ecom-network
+
+volumes:
+  mongodb_data:
+  postgres_data:
+
+networks:
+  ecom-network:
+    driver: bridge
