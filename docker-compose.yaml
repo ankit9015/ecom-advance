@@ -49,13 +49,13 @@ services:
       dockerfile: Dockerfile
     container_name: catalogue
     ports:
-      - "5001:${CATALOGUE_SERVICE_PORT}"
+      - "5001:${CATALOGUE_SERVICE_PORT:-5001}"
     environment:
-      NODE_ENV: ${NODE_ENV}
-      MONGODB_URI: ${MONGODB_URI}
-      PORT: ${CATALOGUE_SERVICE_PORT}
-      USER_SERVICE_URL: ${USER_SERVICE_URL}
-      RATINGS_SERVICE_URL: ${RATINGS_SERVICE_URL}
+      NODE_ENV: ${NODE_ENV:-development}
+      MONGODB_URI: ${MONGODB_URI:-mongodb://mongodb:27017/catalogue}
+      PORT: ${CATALOGUE_SERVICE_PORT:-5001}
+      USER_SERVICE_URL: ${USER_SERVICE_URL:-http://user:5002}
+      RATINGS_SERVICE_URL: ${RATINGS_SERVICE_URL:-http://ratings:5003}
     depends_on:
       mongodb:
         condition: service_healthy
@@ -73,11 +73,11 @@ services:
       dockerfile: Dockerfile
     container_name: user
     ports:
-      - "5002:${USER_SERVICE_PORT}"
+      - "5002:${USER_SERVICE_PORT:-5002}"
     environment:
-      NODE_ENV: ${NODE_ENV}
-      DATABASE_URL: ${DATABASE_URL}
-      PORT: ${USER_SERVICE_PORT}
+      NODE_ENV: ${NODE_ENV:-development}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://ecom_user:ecom_password@postgres:5432/ecom_db}
+      PORT: ${USER_SERVICE_PORT:-5002}
     depends_on:
       postgres:
         condition: service_healthy
@@ -95,11 +95,11 @@ services:
       dockerfile: Dockerfile
     container_name: ratings
     ports:
-      - "5003:${RATINGS_SERVICE_PORT}"
+      - "5003:${RATINGS_SERVICE_PORT:-5003}"
     environment:
-      FLASK_ENV: ${FLASK_ENV}
-      DATABASE_URL: ${DATABASE_URL}
-      PORT: ${RATINGS_SERVICE_PORT}
+      FLASK_ENV: ${FLASK_ENV:-development}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://ecom_user:ecom_password@postgres:5432/ecom_db}
+      PORT: ${RATINGS_SERVICE_PORT:-5003}
     depends_on:
       postgres:
         condition: service_healthy
@@ -120,9 +120,9 @@ services:
     ports:
       - "3000:3000"
     environment:
-      REACT_APP_CATALOGUE_URL: http://localhost:5001
-      REACT_APP_USER_URL: http://localhost:5002
-      REACT_APP_RATINGS_URL: http://localhost:5003
+      REACT_APP_CATALOGUE_URL: ${REACT_APP_CATALOGUE_URL:-http://localhost:5001}
+      REACT_APP_USER_URL: ${REACT_APP_USER_URL:-http://localhost:5002}
+      REACT_APP_RATINGS_URL: ${REACT_APP_RATINGS_URL:-http://localhost:5003}
     depends_on:
       - catalogue
       - user
